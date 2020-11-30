@@ -1,6 +1,7 @@
 #include <vector>
 #include <iostream>
 #include "wav_reader.cpp"
+#include "wav_writer.h"
 
 int main() {
     std::vector<wav_file> files;
@@ -8,9 +9,14 @@ int main() {
     wav_reader reader;
     files.reserve(4);
     for (int i = 0; i < 4; i++) {
+        std::cout << "Input in-file name please\n";
         std::cin >> file_name;
         files.push_back(reader.reader(file_name.data()));
         std::cout << files[i];
     }
+    std::cout << "Input out-file name please\n";
+    wav_writer writer;
+    std::cin >> file_name;
+    writer.writer(file_name.data(), files);
     return 0;
 }
