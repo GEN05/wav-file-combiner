@@ -1,84 +1,56 @@
 #include "wav_reader.h"
 #include "my_exception.cpp"
 
-FILE *file;
+FILE *input_file;
 
-// TODO: fix extra symbols at big endian fields
 wav_file wav_reader::reader(char *file_name) {
-    file = fopen(file_name, "r+");
-    if (!file)
-        throw exception("Can't open file");
+    input_file = fopen(file_name, "r");
+    if (!input_file)
+        throw exception("Can't open in-file");
     wav_file wavFile{};
 
     check_chunk("RIFF");
     wavFile.setChunkId("RIFF");
-//    std::cout << wavFile.getChunkId() << "\n";
-
-    auto chunk_size = read<uint32_t>(0);
-    wavFile.setChunkSize(chunk_size);
-//    std::cout << wavFile.getChunkSize() << "\n";
-
+    wavFile.setChunkSize(read<unsigned int>());
     check_chunk("WAVE");
     wavFile.setFormat("WAVE");
-//    std::cout << wavFile.getFormat() << "\n";
-
     check_chunk("fmt ");
     wavFile.setSubChunk1Id("fmt ");
-//    std::cout << wavFile.getSubChunk1Id() << "\n";
-
-    auto sub_chunk_1_size = read<uint32_t>(0);
-    wavFile.setSubChunk1Size(sub_chunk_1_size);
-//    std::cout << wavFile.getSubChunk1Size() << "\n";
-
-    auto audio_format = read<uint16_t>(0);
-    wavFile.setAudioFormat(audio_format);
-//    std::cout << wavFile.getAudioFormat() << "\n";
-
-    auto num_channels = read<uint16_t>(0);
-    wavFile.setNumChannels(num_channels);
-//    std::cout << wavFile.getNumChannels() << "\n";
-
-    auto sample_rate = read<uint32_t>(0);
-    wavFile.setSampleRate(sample_rate);
-//    std::cout << wavFile.getSampleRate() << "\n";
-
-    auto byte_rate = read<uint32_t>(0);
-    wavFile.setByteRate(byte_rate);
-//    std::cout << wavFile.getByteRate() << "\n";
-
-    auto block_align = read<uint16_t>(0);
-    wavFile.setBlockAlign(block_align);
-//    std::cout << wavFile.getBlockAlign() << "\n";
-
-    auto bits_per_sample = read<uint16_t>(0);
-    wavFile.setBitsPerSample(bits_per_sample);
-//    std::cout << wavFile.getBitsPerSample() << "\n";
-
+    wavFile.setSubChunk1Size(read<unsigned int>());
+    wavFile.setAudioFormat(read<unsigned short>());
+    wavFile.setNumChannels(read<unsigned short>());
+    wavFile.setSampleRate(read<unsigned int>());
+    wavFile.setByteRate(read<unsigned int>());
+    wavFile.setBlockAlign(read<unsigned short>());
+    wavFile.setBitsPerSample(read<unsigned short>());
     check_chunk("data");
     wavFile.setSubChunk2Id("data");
-//    std::cout << wavFile.getSubChunk2Id() << "\n";
-
-    auto sub_chunk_2_size = read<uint32_t>(0);
-    wavFile.setSubChunk2Size(sub_chunk_2_size);
-//    std::cout << wavFile.getSubChunk2Size() << "\n";
+    wavFile.setSubChunk2Size(read<unsigned int>());
+    wavFile.setData(read<unsigned long>());
     return wavFile;
 }
 
 void wav_reader::check_chunk(std::string chunk) {
-    char id[4];
-    if (std::fread(id, 1, 4, file) == 0)
+    char chunk_from_file[4];
+    if (std::fread(chunk_from_file, 1, 4, input_file) == 0)
         throw exception("Read error");
     for (int i = 0; i < 4; i++)
-        if (id[i] != chunk[i])
-            throw exception("Invalid file");
+        if (chunk_from_file[i] != chunk[i])
+            throw exception("Invalid input_file");
 }
 
 template<typename T>
-T wav_reader::read(int size) {
-    if (size == 0)
-        size = sizeof(T);
-    char mas[size];
-    if (std::fread(mas, 1, size, file) == 0)
+T wav_reader::read() {
+    int size = sizeof(T);
+    char array[size];
+    if (std::fread(array, 1, size, input_file) == 0)
         throw exception("read error");
-    return *reinterpret_cast<T *>(mas);
+    return *reinterpret_cast<T *>(array);
 }
+
+wav_reader::~wav_reader() {
+    if (input_file)
+        fclose(input_file);
+}
+
+// RIFF0x63fd50WAVEfmt 0x63fd700x63fd580x63fd700x63fd700x63fd700x63fd580x63fd58data0x63fd50

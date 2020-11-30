@@ -122,6 +122,15 @@ std::ostream &operator<<(std::ostream &os, const wav_file &file) {
        << "block_align: " << file.getBlockAlign() << "\n"
        << "bits_per_sample: " << file.getBitsPerSample() << "\n"
        << "sub_chunk_2_id: " << file.getSubChunk2Id() << "\n"
-       << "sub_chunk_2_size: " << file.getSubChunk2Size() << "\n";
+       << "sub_chunk_2_size: " << file.getSubChunk2Size() << "\n"
+       << "data: " << file.getData() << "\n";
     return os;
+}
+
+unsigned long wav_file::getData() const {
+    return data;
+}
+
+void wav_file::setData(unsigned long data2) {
+    wav_file::data = data2;
 }

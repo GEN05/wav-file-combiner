@@ -93,8 +93,7 @@ struct wav_file {
      */
     unsigned long sub_chunk_2_size;
 
-    // D A T A
-
+    unsigned long data;
 
     void setChunkId(std::string chunkId);
 
@@ -122,6 +121,8 @@ struct wav_file {
 
     void setSubChunk2Size(unsigned long subChunk2Size);
 
+    void setData(unsigned long data2);
+
     [[nodiscard]] const char *getChunkId() const;
 
     [[nodiscard]] unsigned long getChunkSize() const;
@@ -147,6 +148,8 @@ struct wav_file {
     [[nodiscard]] const char *getSubChunk2Id() const;
 
     [[nodiscard]] unsigned long getSubChunk2Size() const;
+
+    [[nodiscard]] unsigned long getData() const;
 
     friend std::ostream &operator<<(std::ostream &os, const wav_file &file);
 };
