@@ -1,22 +1,13 @@
 #include <vector>
-#include <iostream>
-#include "wav_reader.cpp"
-#include "wav_writer.cpp"
+#include "wav_file.cpp"
 
-int main() {
+int main(int argc, char **argv) {
+    if (argc != 6)
+        throw exception("wrong number of arguments");
     std::vector<wav_file> files;
-    std::string file_name;
-    wav_reader reader;
     files.reserve(4);
-    for (int i = 0; i < 4; i++) {
-        std::cout << "Input input-file name please\n";
-        std::cin >> file_name;
-        files.push_back(reader.reader(file_name.data()));
-        std::cout << files[i];
+    for (int i = 1; i < argc - 1; i++) {
+        files[i - 1].load(argv[i]);
     }
-    std::cout << "Input output-file name please\n";
-    wav_writer writer;
-    std::cin >> file_name;
-    writer.writer(file_name.data(), files);
     return 0;
 }

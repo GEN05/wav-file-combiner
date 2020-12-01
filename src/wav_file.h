@@ -95,6 +95,17 @@ struct wav_file {
 
     unsigned long data;
 
+    FILE *file;
+
+    void load(const char *file_name);
+
+    void check_chunk(std::string chunk) const;
+
+    template<typename T>
+    T read();
+
+    void save(const char *);
+
     void setChunkId(std::string chunkId);
 
     void setChunkSize(unsigned long chunkSize);

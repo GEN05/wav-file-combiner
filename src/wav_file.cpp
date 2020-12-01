@@ -1,4 +1,5 @@
 #include "wav_file.h"
+#include "my_exception.cpp"
 
 void wav_file::setChunkId(std::string chunkId) {
     for (int i = 0; i < 4; i++)
@@ -133,4 +134,50 @@ unsigned long wav_file::getData() const {
 
 void wav_file::setData(unsigned long data2) {
     wav_file::data = data2;
+}
+
+void wav_file::load(const char *file_name) {
+    file = fopen(file_name, "r+");
+    if (!file)
+        throw exception("Can't open in-file");
+    check_chunk("RIFF");
+    setChunkId("RIFF");
+    setChunkSize(read<unsigned int>());
+    check_chunk("WAVE");
+    setFormat("WAVE");
+    check_chunk("fmt ");
+    setSubChunk1Id("fmt ");
+    setSubChunk1Size(read<unsigned int>());
+    setAudioFormat(read<unsigned short>());
+    setNumChannels(read<unsigned short>());
+    setSampleRate(read<unsigned int>());
+    setByteRate(read<unsigned int>());
+    setBlockAlign(read<unsigned short>());
+    setBitsPerSample(read<unsigned short>());
+    check_chunk("data");
+    setSubChunk2Id("data");
+    setSubChunk2Size(read<unsigned int>());
+    setData(read<unsigned long>());
+}
+
+void wav_file::check_chunk(std::string chunk) const {
+    char chunk_from_file[4];
+    if (std::fread(chunk_from_file, 1, 4, file) == 0)
+        throw exception("Read error");
+    for (int i = 0; i < 4; i++)
+        if (chunk_from_file[i] != chunk[i])
+            throw exception("Invalid input_file");
+}
+
+template<typename T>
+T wav_file::read() {
+    int size = sizeof(T);
+    char array[size];
+    if (std::fread(array, 1, size, file) == 0)
+        throw exception("read error");
+    return *reinterpret_cast<T *>(array);
+}
+
+void wav_file::save(const char *) {
+
 }
