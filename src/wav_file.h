@@ -1,12 +1,16 @@
-
 #include <ostream>
 
 struct wav_file {
+
+    wav_file() noexcept;
+
+    explicit wav_file(const char *file_name);
+
     /*
      * Contains the letters "RIFF" in ASCII form
      * (0x52494646 big-endian form).
      */
-    char chunk_id[4];
+    char chunk_id[4]{};
 
     /*
      * 36 + SubChunk2Size, or more precisely:
@@ -17,14 +21,14 @@ struct wav_file {
      * two fields not included in this count:
      * ChunkID and ChunkSize.
      */
-    unsigned long chunk_size;
+    unsigned long chunk_size{};
 
 
     /*
      * Contains the letters "WAVE"
      * (0x57415645 big-endian form).
      */
-    char format[4];
+    char format[4]{};
 
     //  The "WAVE" format consists of two subchunks: "fmt " and "data":
     //  The "fmt " subchunk describes the sound data's format:
@@ -33,35 +37,35 @@ struct wav_file {
      * Contains the letters "fmt "
      * (0x666d7420 big-endian form).
      */
-    char sub_chunk_1_id[4];
+    char sub_chunk_1_id[4]{};
 
     /*
      * 16 for PCM.  This is the size of the
      * rest of the Subchunk which follows this number.
      */
-    unsigned long sub_chunk_1_size;
+    unsigned long sub_chunk_1_size{};
 
     /*
      * PCM = 1 (i.e. Linear quantization)
      * Values other than 1 indicate some
      * form of compression.
      */
-    unsigned short audio_format;
+    unsigned short audio_format{};
 
     /*
      * Mono = 1, Stereo = 2, etc.
      */
-    unsigned short num_channels;
+    unsigned short num_channels{};
 
     /*
      * 8000, 44100, etc.
      */
-    unsigned long sample_rate;
+    unsigned long sample_rate{};
 
     /*
      * == SampleRate * NumChannels * BitsPerSample/8
      */
-    unsigned long byte_rate;
+    unsigned long byte_rate{};
 
     /*
      * == NumChannels * BitsPerSample/8
@@ -69,12 +73,12 @@ struct wav_file {
      * all channels. I wonder what happens when
      * this number isn't an integer?
      */
-    unsigned short block_align;
+    unsigned short block_align{};
 
     /*
      * 8 bits = 8, 16 bits = 16, etc.
      */
-    unsigned short bits_per_sample;
+    unsigned short bits_per_sample{};
 
     //  The "data" subchunk contains the size of the data and the actual sound:
 
@@ -82,7 +86,7 @@ struct wav_file {
      * Contains the letters "data"
      * (0x64617461 big-endian form).
      */
-    char sub_chunk_2_id[4];
+    char sub_chunk_2_id[4]{};
 
     /*
      * == NumSamples * NumChannels * BitsPerSample/8
@@ -91,11 +95,9 @@ struct wav_file {
      * of the read of the subchunk following this
      * number.
      */
-    unsigned long sub_chunk_2_size;
+    unsigned long sub_chunk_2_size{};
 
-    unsigned long data;
-
-    FILE *file;
+    FILE *file{};
 
     void load(const char *file_name);
 
@@ -104,20 +106,15 @@ struct wav_file {
     template<typename T>
     T read();
 
-    void save(const char *file_name, std::vector<wav_file> files);
-
-    void are_compatible(std::vector<wav_file> files, int i);
-
-    void are_mono(std::vector<wav_file> files, int i);
-
     template<typename T>
     void write(T symbols, int size);
 
+    template<typename T>
     void merge_and_write(std::vector<wav_file> files, long long min_data_size);
 
     void setChunkId(std::string chunkId);
 
-    void setChunkSize(unsigned long chunkSize);
+    void setChunkSize(unsigned int chunkSize);
 
     void setFormat(const char *format2);
 
@@ -140,8 +137,6 @@ struct wav_file {
     void setSubChunk2Id(const char *subChunk2Id);
 
     void setSubChunk2Size(unsigned long subChunk2Size);
-
-    void setData(unsigned long data2);
 
     [[nodiscard]] const char *getChunkId() const;
 
@@ -168,8 +163,6 @@ struct wav_file {
     [[nodiscard]] const char *getSubChunk2Id() const;
 
     [[nodiscard]] unsigned long getSubChunk2Size() const;
-
-    [[nodiscard]] unsigned long getData() const;
 
     friend std::ostream &operator<<(std::ostream &os, const wav_file &file);
 };

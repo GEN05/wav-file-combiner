@@ -1,12 +1,16 @@
 #include "wav_file.h"
 #include "my_exception.cpp"
 
+wav_file::wav_file(const char *file_name) {
+    load(file_name);
+}
+
 void wav_file::setChunkId(std::string chunkId) {
     for (int i = 0; i < 4; i++)
         chunk_id[i] = chunkId[i];
 }
 
-void wav_file::setChunkSize(unsigned long chunkSize) {
+void wav_file::setChunkSize(unsigned int chunkSize) {
     chunk_size = chunkSize;
 }
 
@@ -123,21 +127,12 @@ std::ostream &operator<<(std::ostream &os, const wav_file &file) {
        << "block_align: " << file.getBlockAlign() << "\n"
        << "bits_per_sample: " << file.getBitsPerSample() << "\n"
        << "sub_chunk_2_id: " << file.getSubChunk2Id() << "\n"
-       << "sub_chunk_2_size: " << file.getSubChunk2Size() << "\n"
-       << "data: " << file.getData() << "\n";
+       << "sub_chunk_2_size: " << file.getSubChunk2Size() << "\n";
     return os;
 }
 
-unsigned long wav_file::getData() const {
-    return data;
-}
-
-void wav_file::setData(unsigned long data2) {
-    wav_file::data = data2;
-}
-
 void wav_file::load(const char *file_name) {
-    file = fopen(file_name, "r+");
+    file = fopen(file_name, "r");
     if (!file)
         throw exception("Can't open in-file");
     check_chunk("RIFF");
@@ -154,10 +149,11 @@ void wav_file::load(const char *file_name) {
     setByteRate(read<unsigned int>());
     setBlockAlign(read<unsigned short>());
     setBitsPerSample(read<unsigned short>());
+    //std::fseek(file, getSubChunk1Size() - 16, SEEK_CUR);
     check_chunk("data");
     setSubChunk2Id("data");
     setSubChunk2Size(read<unsigned int>());
-    setData(read<unsigned long>());
+    //setData(read<unsigned long>());
 }
 
 void wav_file::check_chunk(std::string chunk) const {
@@ -178,36 +174,34 @@ T wav_file::read() {
     return *reinterpret_cast<T *>(array);
 }
 
-void wav_file::save(const char *file_name, std::vector<wav_file> files) {
-    file = fopen(file_name, "w+");
-    if (!file)
-        throw exception("Can't open out-file");
-    long long int min_data_size = INT64_MAX;
-    for (int i = 0; i < files.size(); i++) {
-        are_compatible(files, i);
-        are_mono(files, i);
-        long long int data_size = files[i].getSubChunk2Size();
-        if (min_data_size < data_size)
-            min_data_size = data_size;
-    }
-    min_data_size *= 2;
-    write("RIFF", 4);
-    write(min_data_size + 28, 0);
-    write("WAVE", 4);
-    write("fmt ", 4);
-    write<unsigned int>(16, 0);
-    write<unsigned short>(1, 0);
-    write(2, 0);
-    write(files[0].getSampleRate(), 0);
-    write(files[0].getByteRate(), 0);
-    write(files[0].getBlockAlign(), 0);
-    write(files[0].getBitsPerSample(), 0);
-    write("data", 4);
-    write(2 * min_data_size, 0);
-    merge_and_write(files, min_data_size);
+template<typename T>
+void wav_file::write(T symbols, int size) {
+    if (size == 0)
+        size = sizeof(symbols);
+    else
+        size = 4;
+    std::fwrite(&symbols, 1, size, file);
 }
 
-void wav_file::are_compatible(std::vector<wav_file> files, int i) {
+template<typename T>
+void wav_file::merge_and_write(std::vector<wav_file> files, long long int min_data_size) {
+    for (unsigned int i = 0; i < min_data_size; i++) {
+        T left = 0, right = 0;
+        for (unsigned int j = 0; j < files.size(); j += 2)
+            left += files[j].read<T>();
+        for (unsigned int j = 1; j < files.size(); j += 2)
+            right += files[j].read<T>();
+        left *= 2;
+        right *= 2;
+        write<T>(left, 0);
+        write<T>(right, 0);
+    }
+}
+
+wav_file::wav_file() noexcept = default;
+
+
+void are_compatible(std::vector<wav_file> files, unsigned int i) {
     if (i + 1 < files.size()) {
         wav_file first = files[i];
         wav_file second = files[i + 1];
@@ -218,39 +212,64 @@ void wav_file::are_compatible(std::vector<wav_file> files, int i) {
     }
 }
 
-void wav_file::are_mono(std::vector<wav_file> files, int i) {
+void are_mono(std::vector<wav_file> files, unsigned int i) {
     if (files[i].getNumChannels() != 1)
         throw exception("I can work only with mono files");
 }
 
-template<typename T>
-void wav_file::write(T symbols, int size) {
-    if (size == 0)
-        size = sizeof(symbols);
-    else
-        size = 4;
-    std::fwrite(&symbols, 1, size, file);
-}
 
-void wav_file::merge_and_write(std::vector<wav_file> files, long long int min_data_size) {
-    for (unsigned int i = 0; i < min_data_size; i++) {
-        long long int left = 0, right = 0;
-        unsigned int left_channels = 0, right_channels = 0;
-        for (unsigned int j = 0; j < files.size(); j += 2) {
-            left += files[j].getData();
-            left_channels++;
-        }
-        for (unsigned int j = 1; j < files.size(); j += 2) {
-            right += files[j].getData();
-            right_channels++;
-        }
-        if (left != 0)
-            left /= left_channels;
-        if (right != 0)
-            right /= right_channels;
-        left *= 2;
-        right *= 2;
-        write<long long int>(left, 0);
-        write<long long int>(right, 0);
+void save(const char *file_name, std::vector<wav_file> files) {
+    wav_file output_file;
+    output_file.file = fopen(file_name, "w+");
+    if (!output_file.file)
+        throw exception("Can't open out-file");
+    unsigned int min_data_size = UINT32_MAX;
+    for (unsigned int i = 0; i < files.size(); i++) {
+        std::fseek(files[i].file,
+                   files[i].chunk_size - files[i].sub_chunk_2_size + // NOLINT(cppcoreguidelines-narrowing-conversions)
+                   8, // NOLINT(cppcoreguidelines-narrowing-conversions)
+                   SEEK_SET); // NOLINT(cppcoreguidelines-narrowing-conversions)
+        are_compatible(files, i);
+        are_mono(files, i);
+        long long int data_size = files[i].getSubChunk2Size();
+        if (min_data_size > data_size)
+            min_data_size = data_size;
+    }
+    output_file.setChunkId("RIFF");
+    output_file.write("RIFF", 4);
+    output_file.setChunkSize(min_data_size + 28);
+    output_file.write(min_data_size + 28, 0);
+    output_file.setFormat("WAVE");
+    output_file.write("WAVE", 4);
+    output_file.setSubChunk1Id("fmt  ");
+    output_file.write("fmt ", 4);
+    output_file.setSubChunk1Size(16);
+    output_file.write<unsigned int>(16, 0);
+    output_file.setAudioFormat(1);
+    output_file.write<unsigned short>(1, 0);
+    output_file.setNumChannels(2);
+    output_file.write(2, 0);
+    output_file.setSampleRate(files[0].getSampleRate());
+    output_file.write(files[0].getSampleRate(), 0);
+    output_file.setByteRate(files[0].getByteRate());
+    output_file.write(output_file.getByteRate(), 0);
+    output_file.setBlockAlign(files[0].getBlockAlign());
+    output_file.write(output_file.getBlockAlign(), 0);
+    output_file.setBitsPerSample(files[0].getBitsPerSample());
+    output_file.write(output_file.getBitsPerSample(), 0);
+    output_file.setSubChunk2Id("data");
+    output_file.write("data", 4);
+    output_file.setSubChunk2Size(2 * min_data_size);
+    output_file.write(2 * min_data_size, 0);
+    switch (output_file.bits_per_sample) {
+        case 8:
+            output_file.merge_and_write<uint8_t>(files, min_data_size);
+            break;
+        case 16:
+            output_file.merge_and_write<int16_t>(files, min_data_size);
+            break;
+        case 32:
+            output_file.merge_and_write<int32_t>(files, min_data_size);
+            break;
     }
 }
